@@ -1,6 +1,7 @@
 /* display.c
  * 
  * Copyright 2005 Martin Read
+ * Copyright 2026 Filip Jamroga
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -650,9 +651,10 @@ int getyn(const char *msg)
 
 void print_help(void)
 {
+    int linemax = MIN(g_term_height-6,18);
     for(int i=0; i<sizeof(help_lines)/sizeof(char*); i++){
         print_msg(help_lines[i]);
-        if(i%10==0 && i>0){
+        if(i%linemax==0 && i>0){
             print_msg("Press any key to continue...\n");
             wgetch(message_window);
         }
