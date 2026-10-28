@@ -317,6 +317,7 @@ void print_msg(const char *fmt, ...)
 void show_discoveries(void)
 {
     int i, j;
+	int linemax = MIN(g_term_height-6,18);
     print_msg("You recognise the following items:\n");
     for (i = 0, j = 1; i < PO_REAL_COUNT; i++)
     {
@@ -325,17 +326,19 @@ void show_discoveries(void)
 	    print_msg("%s\n", permobjs[i].name);
 	    j++;
 	}
-	if (j == 19)
+	if(j%linemax==0 && j>0)
 	{
-	    press_enter();
-	    j = 0;
+		print_msg("Press any key to continue...\n");
+		wgetch(message_window);
 	}
     }
 }
 
 void print_inv(enum poclass_num filter)
 {
-    int i;
+    int i,j;
+	int linemax = MIN(g_term_height-6,18);
+	j=0;
     for (i = 0; i < 19; i++)
     {
 	if ((u.inventory[i] != -1) && ((filter == POCLASS_NONE) || (permobjs[objects[u.inventory[i]].obj_id].poclass == filter)))
@@ -355,6 +358,12 @@ void print_inv(enum poclass_num filter)
 		print_msg(" (being worn)");
 	    }
 	    print_msg("\n");
+		j++;
+	}
+	if(j%linemax==0 && j>0)
+	{
+		print_msg("Press any key to continue...\n");
+		wgetch(message_window);
 	}
     }
 }
@@ -364,12 +373,18 @@ int inv_select(enum poclass_num filter, const char *action, int accept_blank)
     int selection;
     int ch;
     int i;
-    int items = 0;
+	int items = 0;
+	int linemax = MIN(g_term_height-6,18);
     for (i = 0; i < 19; i++)
     {
 	if ((u.inventory[i] != -1) && ((filter == POCLASS_NONE) || (permobjs[objects[u.inventory[i]].obj_id].poclass == filter)))
 	{
 	    items++;
+	}
+	if(items%linemax==0 && items>0)
+	{
+		print_msg("Press any key to continue...\n");
+		wgetch(message_window);
 	}
     }
     if (items == 0)
