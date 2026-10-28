@@ -47,6 +47,9 @@ int map_updated;
 int show_terrain;
 int hard_redraw;
 
+int g_term_height;
+int g_term_width;
+
 chtype colour_attrs[15] =
 {
     0,
@@ -66,11 +69,16 @@ chtype colour_attrs[15] =
     COLOR_PAIR(DBCLR_CYAN) | A_BOLD
 };
 
-#define DISP_HEIGHT 15
-#define DISP_WIDTH 20
+#define DISP_HEIGHT 21
+#define DISP_WIDTH 21
+#define MIN(X, Y) X < Y ? X : Y
+#define MAX(X, Y) X > Y ? X : Y
 
 chtype back_buffer[DUN_HEIGHT][DUN_WIDTH];
 chtype front_buffer[DISP_HEIGHT][DISP_WIDTH];
+
+/* Help Contents */
+const char *help_lines[] = { "MOVEMENT\n", "y  k  u  7  8  9\n", " \\ | /    \\ | / \n", "  \\|/      \\|/  \n", "h--*--l  4--*--6\n", "  /|\\      /|\\  \n", " / | \\    / | \\ \n", "b  j  n  1  2  3\n", "Attack monsters in melee by bumping into them.\n", "Doors do not have to be opened before you go through.\n", "Turn on NUM LOCK to use the numeric keypad for movement.\n", "\n", "ACTIONS\n", "a   make an attack (used to fire bows)\n", "P   put on a ring\n", "R   remove a ring\n", "W   wear armour\n", "T   take off armour\n", "r   read a scroll\n", "w   wield a weapon\n", "q   quaff a potion\n", "g   pick up an item (also 0 or comma)\n", "d   drop an item\n", "e   eat something edible\n", "\n", ">   go down stairs\n", "5   do nothing (wait until next action)\n", ".   do nothing (wait until next action)\n", "OTHER COMMANDS\n", "S   save and exit\n", "X   quit without saving\n", "i   print your inventory\n", "I   examine an item you are carrying\n", "#   show underlying terrain of occupied squares\n", "\\   list all recognised items\n", "D   dump your character's details to <name>.dump\n", "?   print this message\n", "SYMBOLS\n", "@   you\n", ".   floor\n", "\n", ">   stairs down\n", "#   wall\n", "+   a door\n", ")   a weapon\n", "(   a missile weapon\n", "[   a suit of armour\n", "=   a ring\n", "?   a scroll\n", "!   a potion\n", "%%   some food\n", "&   a demon\n", "Most other monsters are shown as letters.\n", "This is all the help you get. Good luck!\n"};
 
 /* Prototypes for static funcs */
 static chtype object_char(int object_id);
@@ -82,26 +90,16 @@ static void draw_world(void);
 /* Static funcs */
 static void draw_status_line(void)
 {
-    // mvwprintw(status_window, 0, 0, "%-16.16s", u.name);
-    // mvwprintw(status_window, 0, 17, "HP: %03d/%03d", u.hpcur, u.hpmax);
-    // mvwprintw(status_window, 0, 30, "XL: %d", u.level);
-    // mvwprintw(status_window, 0, 47, "Body: %02d/%02d", u.body - u.bdam, u.body);
-    // mvwprintw(status_window, 0, 62, "Gold: %d", u.gold);
-    // mvwprintw(status_window, 1, 0, "Defence: %02d", u.defence);
-    // mvwprintw(status_window, 1, 15, "Food: %06d", u.food);
-    // mvwprintw(status_window, 1, 30, "Depth: %d", depth);
-    // mvwprintw(status_window, 1, 62, "XP: %d", u.experience);
-    // mvwprintw(status_window, 1, 44, "Agility: %02d/%02d", u.agility - u.adam, u.agility);
     mvwprintw(status_window, 0, 0, "%-16.16s", u.name);
-    mvwprintw(status_window, 1, 0, "HP: %03d/%03d", u.hpcur, u.hpmax);
-    mvwprintw(status_window, 2, 0, "XL: %d", u.level);
-    mvwprintw(status_window, 3, 0, "XP: %d", u.experience);
-    mvwprintw(status_window, 4, 0, "Body: %02d/%02d", u.body - u.bdam, u.body);
-    mvwprintw(status_window, 5, 0, "Defence: %02d", u.defence);
-    mvwprintw(status_window, 6, 0, "Agility: %02d/%02d", u.agility - u.adam, u.agility);
-    mvwprintw(status_window, 7, 0, "Gold: %d", u.gold);
-    mvwprintw(status_window, 8, 0, "Food: %06d", u.food);
-    mvwprintw(status_window, 9, 0, "Depth: %d", depth);
+    mvwprintw(status_window, 0, 17, "HP: %03d/%03d", u.hpcur, u.hpmax);
+    mvwprintw(status_window, 0, 30, "XL: %d", u.level);
+    mvwprintw(status_window, 0, 47, "Body: %02d/%02d", u.body - u.bdam, u.body);
+    mvwprintw(status_window, 0, 62, "Gold: %d", u.gold);
+    mvwprintw(status_window, 1, 0, "Defence: %02d", u.defence);
+    mvwprintw(status_window, 1, 15, "Food: %06d", u.food);
+    mvwprintw(status_window, 1, 30, "Depth: %d", depth);
+    mvwprintw(status_window, 1, 62, "XP: %d", u.experience);
+    mvwprintw(status_window, 1, 44, "Agility: %02d/%02d", u.agility - u.adam, u.agility);
 }
 
 static chtype terrain_char(enum terrain_num terrain_type)
@@ -189,10 +187,10 @@ static void draw_world(void)
 
     for (i = 0; i < DISP_HEIGHT; i++)
     {
-	y = u.y + i - 6;
+	y = u.y + i - (int)(MIN((g_term_height-3)/2,DISP_HEIGHT/2));
 	for (j = 0; j < DISP_WIDTH; j++)
 	{
-	    x = u.x + j - 9;
+	    x = u.x + j - 10;
 	    if ((y < 0) || (x < 0) ||
 		(y >= DUN_HEIGHT) || (x >= DUN_WIDTH))
 	    {
@@ -246,6 +244,7 @@ void display_update(void)
 int display_init(void)
 {
     initscr();
+    getmaxyx(stdscr,g_term_height,g_term_width);
     noecho();
     cbreak();
     start_color();
@@ -260,11 +259,11 @@ int display_init(void)
     you_colour = DBCLR_WHITE;
     /* OK. We want a 21x21 viewport (player at centre), a 21x58 message
      * window, and a 2x80 status line. */
-    status_window = newwin(10, 16, 0, 63);
+    status_window = newwin(2, MIN(g_term_width,80), MIN(g_term_height-2,22), 0);
     status_panel = new_panel(status_window);
-    world_window = newwin(15, 20, 0, 0);
+    world_window = newwin(MIN(g_term_height-3,21), 21, 0, 0);
     world_panel = new_panel(world_window);
-    message_window = newwin(15, 41, 0, 21);
+    message_window = newwin(MIN(g_term_height-3,21), MIN(g_term_width,80)-22, 0, 21);
     message_panel = new_panel(message_window);
     wclear(status_window);
     wclear(world_window);
@@ -278,8 +277,8 @@ int display_init(void)
     mvwprintw(world_window, 3, 4, "  Martin's");
     mvwprintw(world_window, 4, 4, "Dungeon Bash");
     mvwprintw(world_window, 5, 4, "Version %d.%d", MAJVERS, MINVERS);
-    mvwprintw(world_window, 13, 0, "Adapted for PDAs by");
-    mvwprintw(world_window, 14, 0, "   Filip Jamroga");
+    mvwprintw(world_window, 8, 0, "Adapted for PDAs by");
+    mvwprintw(world_window, 9, 0, "   Filip Jamroga");
     wmove(message_window, 0, 0);
     map_updated = FALSE;
     status_updated = FALSE;
@@ -651,63 +650,13 @@ int getyn(const char *msg)
 
 void print_help(void)
 {
-    print_msg("MOVEMENT\n");
-    print_msg("y  k  u  7  8  9\n");
-    print_msg(" \\ | /    \\ | / \n");
-    print_msg("  \\|/      \\|/  \n");
-    print_msg("h--*--l  4--*--6\n");
-    print_msg("  /|\\      /|\\  \n");
-    print_msg(" / | \\    / | \\ \n");
-    print_msg("b  j  n  1  2  3\n");
-    print_msg("Attack monsters in melee by bumping into them.\n");
-    print_msg("Doors do not have to be opened before you go through.\n");
-    print_msg("Turn on NUM LOCK to use the numeric keypad for movement.\n");
-    print_msg("Press any key to continue...");
-    wgetch(message_window);
-    print_msg("\nACTIONS\n");
-    print_msg("a   make an attack (used to fire bows)\n");
-    print_msg("P   put on a ring\n");
-    print_msg("R   remove a ring\n");
-    print_msg("W   wear armour\n");
-    print_msg("T   take off armour\n");
-    print_msg("r   read a scroll\n");
-    print_msg("w   wield a weapon\n");
-    print_msg("q   quaff a potion\n");
-    print_msg("g   pick up an item (also 0 or comma)\n");
-    print_msg("d   drop an item\n");
-    print_msg("e   eat something edible\n");
-    print_msg("Press any key to continue...");
-    wgetch(message_window);
-    print_msg("\n>   go down stairs\n");
-    print_msg("5   do nothing (wait until next action)\n");
-    print_msg(".   do nothing (wait until next action)\n");
-    print_msg("OTHER COMMANDS\n");
-    print_msg("S   save and exit\n");
-    print_msg("X   quit without saving\n");
-    print_msg("i   print your inventory\n");
-    print_msg("I   examine an item you are carrying\n");
-    print_msg("#   show underlying terrain of occupied squares\n");
-    print_msg("\\   list all recognised items\n");
-    print_msg("D   dump your character's details to <name>.dump\n");
-    print_msg("?   print this message\n");
-    print_msg("SYMBOLS\n");
-    print_msg("@   you\n");
-    print_msg(".   floor\n");
-    print_msg("Press any key to continue...");
-    wgetch(message_window);
-    print_msg("\n>   stairs down\n");
-    print_msg("#   wall\n");
-    print_msg("+   a door\n");
-    print_msg(")   a weapon\n");
-    print_msg("(   a missile weapon\n");
-    print_msg("[   a suit of armour\n");
-    print_msg("=   a ring\n");
-    print_msg("?   a scroll\n");
-    print_msg("!   a potion\n");
-    print_msg("%%   some food\n");
-    print_msg("&   a demon\n");
-    print_msg("Most other monsters are shown as letters.");
-    print_msg("This is all the help you get. Good luck!\n");
+    for(int i=0; i<sizeof(help_lines)/sizeof(char*); i++){
+        print_msg(help_lines[i]);
+        if(i%10==0 && i>0){
+            print_msg("Press any key to continue...\n");
+            wgetch(message_window);
+        }
+    }
 }
 
 /* display.c */
