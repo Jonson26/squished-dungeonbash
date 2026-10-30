@@ -330,6 +330,7 @@ void show_discoveries(void)
 	{
 		print_msg("Press any key to continue...\n");
 		wgetch(message_window);
+		j++;
 	}
     }
 }
@@ -364,6 +365,7 @@ void print_inv(enum poclass_num filter)
 	{
 		print_msg("Press any key to continue...\n");
 		wgetch(message_window);
+		j++;
 	}
     }
 }
